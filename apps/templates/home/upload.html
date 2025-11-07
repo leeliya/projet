@@ -235,8 +235,8 @@
               <div class="mb-3">
                 <label for="file" class="label-theme fw-bold" style="color: #6a007d;">Fichier à analyser :</label>
                 <input type="file" name="file" id="file" class="form-control"
-                       accept=".csv,.pcap,.pcapng" required>
-                <small class="text-muted">Formats acceptés : .csv, .pcap, .pcapng</small>
+                       accept=".pcap,.pcapng,.cap" required>
+                <small class="text-muted">Formats acceptés : .pcap, .pcapng, .cap</small>
               </div>
 
               <!-- Bouton -->
@@ -244,6 +244,9 @@
                 <button type="submit" class="btn text-white px-5 fw-bold"
                         style="background: linear-gradient(135deg, #6a007d, #cb0c9f); border: none;">
                   Lancer l’analyse
+                </button>
+                <button type="button" id="resetBtn" class="btn btn-outline-secondary px-4 fw-bold ms-2">
+                  Réinitialiser
                 </button>
               </div>
             </form>
@@ -260,10 +263,10 @@
           <div class="card-body">
             <h5 class="fw-bold mb-3" style="color: #6a007d;">Comment utiliser cette section</h5>
             <ol class="text-muted">
-              <li>Capturez le trafic réseau (fichier PCAP ou CSV)</li>
+              <li>Capturez le trafic réseau (fichier PCAP/PCAPNG)</li>
               <li>Importez le fichier dans SafeNet IDS</li>
-              <li>Sélectionnez le modèle d’analyse approprié</li>
-              <li>Cliquez sur “Lancer l’analyse”</li>
+              <li>Sélectionnez le modèle d'analyse approprié</li>
+              <li>Cliquez sur "Lancer l'analyse"</li>
               <li>Consultez les résultats et visualisez les prédictions</li>
             </ol>
           </div>
@@ -345,12 +348,54 @@
       initTheme();
       setupThemeToggle();
       setupStorageListener();
+
+      // Bouton Réinitialiser: purge côté serveur + reset du formulaire
+      const resetBtn = document.getElementById('resetBtn');
+      const uploadForm = document.getElementById('uploadForm');
+      if (resetBtn && uploadForm) {
+        resetBtn.addEventListener('click', async function() {
+          try {
+            resetBtn.disabled = true;
+            resetBtn.textContent = 'Nettoyage...';
+            const res = await fetch('/clear-data', { method: 'GET', credentials: 'same-origin' });
+            // Ignorer le contenu exact; l'objectif est de repartir propre
+            uploadForm.reset();
+            // Optionnel: petite notification minimaliste
+            alert('Données temporaires effacées.');
+          } catch (e) {
+            alert("Impossible d'effacer les données temporaires.");
+          } finally {
+            resetBtn.disabled = false;
+            resetBtn.textContent = 'Réinitialiser';
+          }
+        });
+      }
     });
   } else {
     // DOM déjà chargé
     initTheme();
     setupThemeToggle();
     setupStorageListener();
+
+    // Bouton Réinitialiser si DOM déjà prêt
+    const resetBtn = document.getElementById('resetBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    if (resetBtn && uploadForm) {
+      resetBtn.addEventListener('click', async function() {
+        try {
+          resetBtn.disabled = true;
+          resetBtn.textContent = 'Nettoyage...';
+          const res = await fetch('/clear-data', { method: 'GET', credentials: 'same-origin' });
+          uploadForm.reset();
+          alert('Données temporaires effacées.');
+        } catch (e) {
+          alert("Impossible d'effacer les données temporaires.");
+        } finally {
+          resetBtn.disabled = false;
+          resetBtn.textContent = 'Réinitialiser';
+        }
+      });
+    }
   }
 })();
 </script>

@@ -7,15 +7,15 @@ import json
 from datetime import datetime
 
 import flask
-from flask import render_template, redirect, request, url_for, flash
+from flask import render_template, redirect, request, url_for, flash, session
 from flask_login import current_user, login_user, logout_user, login_required
-from flask_dance.contrib.github import github
 
 from apps import db, login_manager
 from apps.authentication import blueprint
 from apps.authentication.forms import LoginForm, CreateAccountForm, UpdateProfileForm, ChangePasswordForm
 from apps.authentication.models import Users
-from apps.authentication.util import verify_pass, generate_token, hash_pass
+from apps.authentication.util import verify_pass, hash_pass
+from apps.home.cleanup import clear_analysis_state
 
 
 @blueprint.route('/')
@@ -28,15 +28,7 @@ def route_default():
         return redirect(url_for('authentication_blueprint.login'))
 
 
-@blueprint.route("/github")
-def login_github():
-    """Github login"""
-    if not github.authorized:
-        return redirect(url_for("github.login"))
-
-    res = github.get("/user")
-    # ✅ Redirige maintenant vers le dashboard
-    return redirect(url_for('home_blueprint.dashboard'))
+# GitHub OAuth login has been removed. Only username/password login is supported now.
 
 
 @blueprint.route('/login', methods=['GET', 'POST'])
@@ -103,49 +95,17 @@ def register():
         return render_template('accounts/register.html', form=create_account_form)
 
 
-@blueprint.route('/login/jwt/', methods=['POST'])
-def login_jwt():
-    try:
-        data = request.get_json()
-        if not data:
-            return {
-                'message': 'username or password is missing',
-                "data": None,
-                'success': False
-            }, 400
-
-        username = data.get('username')
-        password = data.get('password')
-
-        user = Users.query.filter_by(username=username).first()
-
-        if user and verify_pass(password, user.password):
-            if not user.api_token or user.api_token == '':
-                user.api_token = generate_token(user.id)
-                user.api_token_ts = int(datetime.utcnow().timestamp())
-                db.session.commit()
-
-            return {
-                "message": "Successfully fetched auth token",
-                "success": True,
-                "data": user.api_token
-            }
-        else:
-            return {
-                'message': 'username or password is wrong',
-                'success': False
-            }, 403
-
-    except Exception as e:
-        return {
-            "error": "Something went wrong",
-            "success": False,
-            "message": str(e)
-        }, 500
+"""JWT login endpoint removed; simple form-based login only."""
 
 
 @blueprint.route('/logout')
 def logout():
+    # Nettoyer l'état d'analyse temporaire à la déconnexion
+    try:
+        clear_analysis_state(session)
+    except Exception:
+        pass
+
     logout_user()
     return redirect(url_for('authentication_blueprint.login'))
 
@@ -229,7 +189,10 @@ def change_password():
 
 @login_manager.unauthorized_handler
 def unauthorized_handler():
-    return render_template('home/page-403.html'), 403
+    # Redirect to login with next parameter when user is not authenticated
+    flash('Veuillez vous connecter pour accéder à cette page.', 'warning')
+    next_url = request.url
+    return redirect(url_for('authentication_blueprint.login', next=next_url))
 
 
 @blueprint.errorhandler(403)

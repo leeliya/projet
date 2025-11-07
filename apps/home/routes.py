@@ -14,13 +14,14 @@ from jinja2 import TemplateNotFound
 
 from apps.config import API_GENERATOR
 from apps.home import blueprint
+from apps.home.cleanup import clear_analysis_state
 
 # ------------------------------
 # Configuration & constantes
 # ------------------------------
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
-ALLOWED_EXTENSIONS = {'csv'}
+ALLOWED_EXTENSIONS = {'pcap', 'pcapng', 'cap'}
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -87,6 +88,9 @@ def analysis():
 @login_required
 def upload_file():
     try:
+        # Nettoyer toute donnée d'analyse précédente avant un nouvel upload
+        clear_analysis_state(session)
+
         if 'file' not in request.files:
             return jsonify({'error': 'Aucun fichier sélectionné'}), 400
 
@@ -100,11 +104,45 @@ def upload_file():
             file.save(filepath)
 
             try:
-                df = pd.read_csv(filepath)
+                # Détection du type de fichier et extraction des features
+                file_ext = filename.rsplit('.', 1)[1].lower()
+                
+                if file_ext in ['pcap', 'pcapng', 'cap']:
+                    # Traiter fichier PCAP avec scapy
+                    from scapy.all import rdpcap, IP, TCP, UDP
+                    
+                    packets = rdpcap(filepath)
+                    features_list = []
+                    
+                    for pkt in packets[:1000]:  # Limite à 1000 paquets
+                        if IP in pkt:
+                            feature = {
+                                'src_ip': pkt[IP].src,
+                                'dst_ip': pkt[IP].dst,
+                                'protocol': pkt[IP].proto,
+                                'length': len(pkt),
+                            }
+                            
+                            if TCP in pkt:
+                                feature['src_port'] = pkt[TCP].sport
+                                feature['dst_port'] = pkt[TCP].dport
+                            elif UDP in pkt:
+                                feature['src_port'] = pkt[UDP].sport
+                                feature['dst_port'] = pkt[UDP].dport
+                            else:
+                                feature['src_port'] = 0
+                                feature['dst_port'] = 0
+                                
+                            features_list.append(feature)
+                    
+                    df = pd.DataFrame(features_list)
+                else:
+                    return jsonify({'error': 'Format de fichier non reconnu'}), 400
+
                 if len(df) > 1000:
                     df = df.head(1000)
 
-                temp_file = os.path.join(UPLOAD_FOLDER, f"temp_{filename}")
+                temp_file = os.path.join(UPLOAD_FOLDER, f"temp_{filename}.pkl")
                 df.to_pickle(temp_file)
 
                 session['temp_file'] = temp_file
@@ -112,15 +150,16 @@ def upload_file():
 
                 return jsonify({
                     'success': True,
-                    'message': 'Fichier uploadé avec succès',
+                    'message': 'Fichier PCAP uploadé et traité avec succès',
                     'filename': filename,
+                    'packets_count': len(df),
                     'shape': df.shape,
                     'columns': df.columns.tolist()[:10]
                 })
             except Exception as e:
-                return jsonify({'error': f'Erreur lors de la lecture du CSV: {str(e)}'}), 400
+                return jsonify({'error': f'Erreur lors du traitement du fichier PCAP: {str(e)}'}), 400
         else:
-            return jsonify({'error': 'Format de fichier non supporté. Seuls les fichiers CSV sont acceptés'}), 400
+            return jsonify({'error': 'Format de fichier non supporté. Seuls les fichiers PCAP/PCAPNG sont acceptés'}), 400
     except Exception as e:
         return jsonify({'error': f'Erreur lors de l\'upload: {str(e)}'}), 500
 
@@ -181,16 +220,8 @@ def get_analysis_results():
 @blueprint.route('/clear-data')
 @login_required
 def clear_data():
-    if 'temp_file' in session:
-        try:
-            os.remove(session['temp_file'])
-        except:
-            pass
-
-    session.pop('temp_file', None)
-    session.pop('analysis_results', None)
-    session.pop('filename', None)
-    return jsonify({'success': True, 'message': 'Données effacées'})
+    result = clear_analysis_state(session)
+    return jsonify(result)
 
 
 @blueprint.route('/get-model-info')

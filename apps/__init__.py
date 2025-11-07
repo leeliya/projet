@@ -18,6 +18,10 @@ login_manager = LoginManager()
 def register_extensions(app):
     db.init_app(app)
     login_manager.init_app(app)
+    # Redirect unauthenticated users to the login page
+    login_manager.login_view = 'authentication_blueprint.login'
+    login_manager.login_message = 'Veuillez vous connecter pour accéder à cette page.'
+    login_manager.login_message_category = 'warning'
 
 
 def register_blueprints(app):
@@ -47,15 +51,11 @@ def configure_database(app):
     def shutdown_session(exception=None):
         db.session.remove()
 
-from apps.authentication.oauth import github_blueprint
-
 def create_app(config):
     app = Flask(__name__)
     app.config.from_object(config)
     register_extensions(app)
     register_blueprints(app)
-
-    app.register_blueprint(github_blueprint, url_prefix="/login") 
     
     configure_database(app)
     return app

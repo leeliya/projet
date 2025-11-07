@@ -17,8 +17,6 @@ Flask-Minify==0.37
 Flask-Cors==3.0.10
 
 # === AUTHENTICATION / DEPLOYMENT ===
-Flask-Dance==7.0.0
-PyJWT==2.4.0
 gunicorn==20.1.0
 
 # === MACHINE LEARNING / DEEP LEARNING ===

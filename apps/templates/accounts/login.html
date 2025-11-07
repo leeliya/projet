@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
   </div>
 
+
   <main class="main-content  mt-0">
     <section>
       <div class="page-header min-vh-75">
@@ -80,60 +81,27 @@ document.addEventListener('DOMContentLoaded', function() {
                   </h5>
                   <p class="mb-0">
                     {% if msg %}
-                      <span class="text-danger">{{ msg | safe }}</span>
-                    {% else %}
-                    {% endif %}                     
+                      {{ msg }}
+                    {% endif %}
                   </p>
                 </div>
                 <div class="card-body">
-
-                  <form role="form text-left" method="post" action="">
-                    
-                    {{ form.hidden_tag() }}
-
-                    <label>Nom d'utilisateur</label>
+                  <form method="POST" action="/login">
                     <div class="mb-3">
-                      {{ form.username(placeholder="Nom d'utilisateur", class="form-control") }}
+                      <label for="username" class="form-label">Nom d'utilisateur</label>
+                      <input type="text" class="form-control" id="username" name="username" required autofocus>
                     </div>
-
-                    <label>Mot de passe</label>
                     <div class="mb-3">
-                      {{ form.password(placeholder="Mot de passe", class="form-control", type="password") }}
+                      <label for="password" class="form-label">Mot de passe</label>
+                      <input type="password" class="form-control" id="password" name="password" required>
                     </div>
-
-                    <div class="text-center">
-                      <button type="submit" name="login" class="btn btn-login w-100 mt-4 mb-0">Se Connecter</button>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <button type="submit" class="btn btn-login">Connexion</button>
+                      <a href="/register" class="btn btn-register">Créer un compte</a>
                     </div>
-
-                    <div class="text-center">
-                      <a href="{{ url_for('authentication_blueprint.register') }}" class="btn btn-register w-100 mt-4 mb-0">S'inscrire</a>
-                    </div>
-
                   </form>
-
                 </div>
-                <div class="card-footer text-center pt-0 px-lg-2 px-1">
-                  <p class="mb-4 text-sm mx-auto">
-
-                    <!-- GitHub button starts here -->
-                    {% if config.SOCIAL_AUTH_GITHUB %}
-                      
-                      <p class="mb-2">ou se connecter avec</p>
-                      
-                      <a class="btn btn-outline" href="{{url_for('authentication_blueprint.login_github')}}">
-                        <span class="text-lg fs-1 fab fa-github"></span>
-                      </a>
-                          
-                    {% endif %}
-                    <!-- GitHub ends here -->
-                                                           
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="oblique position-absolute top-0 h-100 d-md-block d-none me-n8">
-                <div class="oblique-image bg-cover position-absolute fixed-top ms-auto h-100 z-index-0 ms-n6" style="background-image:url('{{ config.ASSETS_ROOT }}/img/curved-images/curved6.jpg')"></div>
+                <!-- ...existing code... -->
               </div>
             </div>
           </div>
@@ -160,36 +128,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
   }
 
-// Login hook  
-document.getElementsByTagName('form')[0].onsubmit = (e) => {
 
-  e.preventDefault();
-  
-  const formData = new FormData(e.target)
-  const username = formData.get('username');
-  const password = formData.get('password');
-
-  fetch('/login/jwt/',{
-      method: 'POST',
-      body: JSON.stringify({
-          username: username,
-          password: password
-      }),
-      headers: {
-          'Content-Type': 'application/json'
-      }
-  })
-      .then((response) => response.json())
-      .then((res) => {
-
-        //console.log('Token: ' + res.data); 
-
-        // store token in localStorage
-        asyncLocalStorage.setItem('token',res.data).then(result => {e.target.submit()})
-
-      })
-      .catch((err) => {console.log(err)})   
-}
+// No custom JS needed: classic form POST handles login
 
 </script>
 
